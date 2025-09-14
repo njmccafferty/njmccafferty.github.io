@@ -64,7 +64,6 @@ class FlappyGavGame {
             "Let's rock!",
             "I'm not gonna take this anymore!",
             "I've got balls of steel!",
-            "Shake it, baby!",
             "That's gonna leave a mark!",
             "I'm the king of the world!"
         ];
@@ -78,10 +77,7 @@ class FlappyGavGame {
             "Damn, I'm good!",
             "That's gonna leave a mark!",
             "I'm not gonna take this anymore!",
-            "Eat shit and die!",
-            "You're an inspiration for birth control.",
             "I've got balls of steel!",
-            "Shake it, baby!",
             "What are you waiting for? Christmas?"
         ];
         
@@ -1591,6 +1587,10 @@ class FlappyGavGame {
     gameOver() {
         this.gameState = 'gameOver';
         
+        // Store final score and streak before resetting
+        const finalScore = this.score;
+        const finalStreak = this.streak;
+        
         // Stop background music and reset to beginning
         this.stopBackgroundMusic();
         
@@ -1650,7 +1650,8 @@ class FlappyGavGame {
         // Show final quip
         const finalQuip = this.crashQuips[Math.floor(Math.random() * this.crashQuips.length)];
         document.getElementById('finalQuip').textContent = finalQuip;
-        document.getElementById('finalScore').textContent = this.score;
+        document.getElementById('finalScore').textContent = finalScore;
+        document.getElementById('finalStreak').textContent = finalStreak;
         
         this.showScreen('gameOverScreen');
     }

@@ -629,6 +629,23 @@ body {
     text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
 }
 
+.final-streak {
+    margin-bottom: 2rem;
+}
+
+.streak-label {
+    font-size: 1.2rem;
+    color: #ff6b35;
+    margin-bottom: 0.5rem;
+}
+
+.streak-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
 .gav-final-quip {
     font-size: 1.3rem;
     font-style: italic;

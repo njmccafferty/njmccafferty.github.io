@@ -1,6 +1,9 @@
 // Flappy Gav 4D – Forever Citizen
 // WebGL 3D Tunnel Runner Game
 
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
 class FlappyGavGame {
     constructor() {
         this.scene = null;
@@ -36,6 +39,12 @@ class FlappyGavGame {
         this.isSpinning = false;
         this.spinStartTime = 0;
         
+        // Headbang animation (starts after 23s tutorial)
+        this.headbangActive = false;
+        this.headbangStartTime = 0;
+        this.headbangAmplitudeRad = 0.0625; // ~3.6 degrees (25% increase from 0.05)
+        this.headbangPeriodSec = 0.8; // 25% faster (0.8s instead of 1.0s)
+
         // Game objects
         this.rings = [];
         this.terrain = [];
@@ -48,19 +57,15 @@ class FlappyGavGame {
         // Duke Nukem quips
         this.quips = [
             "Hail to the king, baby!",
-            "I'm gonna rip your head off and shit down your neck!",
             "Damn, I'm good!",
             "Come get some!",
             "Time to kick ass and chew bubble gum... and I'm all out of gum.",
             "What are you waiting for? Christmas?",
             "Let's rock!",
             "I'm not gonna take this anymore!",
-            "You're an inspiration for birth control.",
             "I've got balls of steel!",
             "Shake it, baby!",
             "That's gonna leave a mark!",
-            "I'm gonna make you my bitch!",
-            "Eat shit and die!",
             "I'm the king of the world!"
         ];
         
@@ -87,6 +92,21 @@ class FlappyGavGame {
         this.setupEventListeners();
         this.createParticles();
         this.showScreen('splashScreen');
+        
+        // Debug: Check if tutorial display exists on page load
+        console.log('Game initialized, checking for tutorial display...');
+        const tutorialDisplay = document.getElementById('tutorialDisplay');
+        if (tutorialDisplay) {
+            console.log('Tutorial display found on init:', {
+                id: tutorialDisplay.id,
+                className: tutorialDisplay.className,
+                display: window.getComputedStyle(tutorialDisplay).display,
+                visibility: window.getComputedStyle(tutorialDisplay).visibility,
+                opacity: window.getComputedStyle(tutorialDisplay).opacity
+            });
+        } else {
+            console.error('Tutorial display NOT found on init!');
+        }
     }
     
     initAudio() {
@@ -106,19 +126,42 @@ class FlappyGavGame {
         // Test MP3 support
         const audio = new Audio();
         const canPlayMP3 = audio.canPlayType('audio/mpeg');
+        console.log('MP3 support:', canPlayMP3);
         
-        // Try loading music from flat structure
+        // Try loading music with fallback paths
         this.backgroundMusic = new Audio('music.mp3');
+        console.log('Loading music from:', this.backgroundMusic.src);
+        
+        // Add fallback loading if first path fails
+        this.backgroundMusic.addEventListener('error', () => {
+            console.log('Primary path failed, trying fallback...');
+            this.backgroundMusic.src = 'music.mp3'; // Try root directory
+            this.backgroundMusic.load();
+        }, { once: true });
         this.backgroundMusic.loop = false; // We'll handle looping manually
         this.backgroundMusic.volume = 0.3; // Lower volume so it doesn't overpower sound effects
         this.backgroundMusic.preload = 'metadata'; // Changed from 'auto' to 'metadata' for better compatibility
         
         // Handle audio loading events
-        this.backgroundMusic.addEventListener('loadstart', () => {});
-        this.backgroundMusic.addEventListener('canplay', () => {});
-        this.backgroundMusic.addEventListener('canplaythrough', () => {});
-        this.backgroundMusic.addEventListener('loadeddata', () => {});
-        this.backgroundMusic.addEventListener('loadedmetadata', () => {});
+        this.backgroundMusic.addEventListener('loadstart', () => {
+            console.log('Background music: Loading started');
+        });
+        
+        this.backgroundMusic.addEventListener('canplay', () => {
+            console.log('Background music: Can play');
+        });
+        
+        this.backgroundMusic.addEventListener('canplaythrough', () => {
+            console.log('Background music: Can play through');
+        });
+        
+        this.backgroundMusic.addEventListener('loadeddata', () => {
+            console.log('Background music: Data loaded');
+        });
+        
+        this.backgroundMusic.addEventListener('loadedmetadata', () => {
+            console.log('Background music: Metadata loaded, duration:', this.backgroundMusic.duration);
+        });
         
         this.backgroundMusic.addEventListener('error', (e) => {
             console.error('Background music failed to load:', e);
@@ -174,7 +217,7 @@ class FlappyGavGame {
         `;
         message.innerHTML = `
             <strong>Music Load Error</strong><br>
-            Check if music/music.mp3 exists and is accessible<br>
+            Check if music.mp3 exists and is accessible<br>
             <small>Check browser console for details</small>
         `;
         document.body.appendChild(message);
@@ -195,11 +238,7 @@ class FlappyGavGame {
                     console.log('Audio context resumed');
                 }
                 
-                // Also start background music on first interaction
-                if (this.backgroundMusic && this.backgroundMusic.paused) {
-                    await this.backgroundMusic.play();
-                    console.log('Background music started');
-                }
+                // Music will start when "COME GET SOME!" button is pressed
             } catch (e) {
                 console.log('Audio resume failed:', e);
                 // Show user-friendly message
@@ -272,10 +311,16 @@ class FlappyGavGame {
     }
     
     playExplosionSound() {
-        if (!this.audioContext) return;
+        console.log('playExplosionSound called');
+        if (!this.audioContext) {
+            console.log('No audio context available');
+            return;
+        }
         
+        console.log('Audio context state:', this.audioContext.state);
         // Ensure audio context is resumed
         if (this.audioContext.state === 'suspended') {
+            console.log('Resuming audio context');
             this.audioContext.resume();
         }
         
@@ -494,6 +539,11 @@ class FlappyGavGame {
     }
     
     initWebGL() {
+        // Ensure tutorial mode is initialized
+        if (this.tutorialMode === undefined) {
+            this.tutorialMode = true;
+        }
+        
         // Create Three.js scene
         this.scene = new THREE.Scene();
         
@@ -512,14 +562,19 @@ class FlappyGavGame {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        // Add balanced lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.8); // Moderate ambient
         this.scene.add(ambientLight);
         
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // Brighter directional
         directionalLight.position.set(10, 10, 5);
         directionalLight.castShadow = true;
         this.scene.add(directionalLight);
+        
+        // Add gentle fill light
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        fillLight.position.set(-10, 5, 5);
+        this.scene.add(fillLight);
         
         // Add sky with clouds
         this.createSky();
@@ -538,13 +593,13 @@ class FlappyGavGame {
         canvas.height = 512;
         const ctx = canvas.getContext('2d');
         
-        // Sky gradient - dark during tutorial, blue during normal play
+        // Sky gradient - black and white during tutorial, blue during normal play
         const gradient = ctx.createLinearGradient(0, 0, 0, 512);
         if (this.tutorialMode) {
-            // Dark sky for tutorial
+            // Black and white sky for tutorial
             gradient.addColorStop(0, '#000000');  // Pure black at top
-            gradient.addColorStop(0.5, '#1a0000'); // Dark red in middle
-            gradient.addColorStop(1, '#330000');   // Dark red near horizon
+            gradient.addColorStop(0.5, '#404040'); // Dark grey in middle
+            gradient.addColorStop(1, '#808080');   // Medium grey near horizon
         } else {
             // Normal blue sky
             gradient.addColorStop(0, '#0077cc');  // Deep blue zenith
@@ -555,16 +610,23 @@ class FlappyGavGame {
         ctx.fillRect(0, 0, 1024, 512);
         
         // Function to draw soft fluffy cloud shape with radial gradient
-        function drawFluffyCloud(x, y, radiusX, radiusY, baseAlpha = 0.4) {
+        const drawFluffyCloud = (x, y, radiusX, radiusY, baseAlpha = 0.4) => {
             const cloudGradient = ctx.createRadialGradient(x, y, radiusX * 0.2, x, y, radiusX);
-            cloudGradient.addColorStop(0, `rgba(255, 255, 255, ${baseAlpha})`);
-            cloudGradient.addColorStop(0.8, 'rgba(255, 255, 255, 0)');
+            if (this.tutorialMode) {
+                // Black and white clouds for tutorial
+                cloudGradient.addColorStop(0, `rgba(255, 255, 255, ${baseAlpha})`);
+                cloudGradient.addColorStop(0.8, 'rgba(128, 128, 128, 0)');
+            } else {
+                // Normal white clouds
+                cloudGradient.addColorStop(0, `rgba(255, 255, 255, ${baseAlpha})`);
+                cloudGradient.addColorStop(0.8, 'rgba(255, 255, 255, 0)');
+            }
             
             ctx.fillStyle = cloudGradient;
             ctx.beginPath();
             ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
             ctx.fill();
-        }
+        };
         
         // Draw many smaller clouds scattering across upper and mid sky
         for (let i = 0; i < 40; i++) {
@@ -612,148 +674,251 @@ class FlappyGavGame {
     
     
     createGav() {
-        // Create Gav's head (oval shape like the photo)
-        const headGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-        headGeometry.scale(1, 1.2, 1); // Make it more oval
-        const headMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xffdbac,
-            shininess: 100
+        // Load head.glb model
+        const loader = new GLTFLoader();
+        loader.load('head.glb', (gltf) => {
+            console.log('Head GLB loaded successfully');
+            this.gav = gltf.scene;
+            
+            // Debug: Log UV information
+            console.log('=== UV MAP DEBUG ===');
+            let hasUV = false;
+            this.gav.traverse((child) => {
+                if (child.isMesh) {
+                    console.log('Mesh found, checking attributes...');
+                    console.log('Available attributes:', Object.keys(child.geometry.attributes));
+                    
+                    if (child.geometry.attributes.uv) {
+                        hasUV = true;
+                        const uvArray = child.geometry.attributes.uv.array;
+                        
+                        // Find UV bounds
+                        let minU = Infinity, maxU = -Infinity;
+                        let minV = Infinity, maxV = -Infinity;
+                        for (let i = 0; i < uvArray.length; i += 2) {
+                            minU = Math.min(minU, uvArray[i]);
+                            maxU = Math.max(maxU, uvArray[i]);
+                            minV = Math.min(minV, uvArray[i + 1]);
+                            maxV = Math.max(maxV, uvArray[i + 1]);
+                        }
+                        // If bounds collapse, regenerate with spherical mapping
+                        if ((maxU - minU) < 1e-6 || (maxV - minV) < 1e-6) {
+                            const positions = child.geometry.attributes.position.array;
+                            const regenerated = new Float32Array(child.geometry.attributes.position.count * 2);
+                            for (let i = 0, j = 0; i < positions.length; i += 3, j += 2) {
+                                const x = positions[i];
+                                const y = positions[i + 1];
+                                const z = positions[i + 2];
+                                const r = Math.sqrt(x * x + y * y + z * z) || 1;
+                                const u = 0.5 + Math.atan2(z, x) / (2 * Math.PI);
+                                const v = 0.5 - Math.asin(Math.max(-1, Math.min(1, y / r))) / Math.PI;
+                                regenerated[j] = u;
+                                regenerated[j + 1] = v;
+                            }
+                            child.geometry.setAttribute('uv', new THREE.BufferAttribute(regenerated, 2));
+                        }
+                        
+                    } else {
+                        // Generate UV coordinates
+                        child.geometry.computeBoundingBox();
+                        const bbox = child.geometry.boundingBox;
+                        const size = new THREE.Vector3();
+                        bbox.getSize(size);
+                        
+                        
+                        const uvArray = new Float32Array(child.geometry.attributes.position.count * 2);
+                        const positions = child.geometry.attributes.position.array;
+                        
+                        // Check if bounding box is valid
+                        if (size.x === 0 || size.y === 0 || size.z === 0 || 
+                            !isFinite(size.x) || !isFinite(size.y) || !isFinite(size.z)) {
+                            
+                            // Fallback: generate UVs based on position ranges
+                            let minX = Infinity, maxX = -Infinity;
+                            let minY = Infinity, maxY = -Infinity;
+                            let minZ = Infinity, maxZ = -Infinity;
+                            
+                            for (let i = 0; i < positions.length; i += 3) {
+                                minX = Math.min(minX, positions[i]);
+                                maxX = Math.max(maxX, positions[i]);
+                                minY = Math.min(minY, positions[i + 1]);
+                                maxY = Math.max(maxY, positions[i + 1]);
+                                minZ = Math.min(minZ, positions[i + 2]);
+                                maxZ = Math.max(maxZ, positions[i + 2]);
+                            }
+                            
+                            const rangeX = maxX - minX;
+                            const rangeY = maxY - minY;
+                            const rangeZ = maxZ - minZ;
+                            
+                            
+                            for (let i = 0; i < positions.length; i += 3) {
+                                const x = positions[i];
+                                const y = positions[i + 1];
+                                const z = positions[i + 2];
+                                
+                                // Cylindrical mapping using calculated ranges
+                                let u = (Math.atan2(z, x) + Math.PI) / (2 * Math.PI);
+                                let v = rangeY > 0 ? (y - minY) / rangeY : 0.5;
+                                
+                                // Clamp values to 0-1 range
+                                u = Math.max(0, Math.min(1, u));
+                                v = Math.max(0, Math.min(1, v));
+                                
+                                uvArray[(i / 3) * 2] = u;
+                                uvArray[(i / 3) * 2 + 1] = v;
+                            }
+                        } else {
+                            // Use bounding box method
+                            for (let i = 0; i < positions.length; i += 3) {
+                                const x = positions[i];
+                                const y = positions[i + 1];
+                                const z = positions[i + 2];
+                                
+                                // Simple cylindrical UV mapping - ensure we have valid values
+                                let u = (Math.atan2(z, x) + Math.PI) / (2 * Math.PI);
+                                let v = (y - bbox.min.y) / size.y;
+                                
+                                // Clamp values to 0-1 range
+                                u = Math.max(0, Math.min(1, u));
+                                v = Math.max(0, Math.min(1, v));
+                                
+                                // Ensure we're not getting NaN or Infinity
+                                if (isNaN(u) || !isFinite(u)) u = 0;
+                                if (isNaN(v) || !isFinite(v)) v = 0;
+                                
+                                uvArray[(i / 3) * 2] = u;
+                                uvArray[(i / 3) * 2 + 1] = v;
+                            }
+                        }
+                        
+                        child.geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+                        
+                        // Find actual UV bounds
+                        let minU = Infinity, maxU = -Infinity;
+                        let minV = Infinity, maxV = -Infinity;
+                        for (let i = 0; i < uvArray.length; i += 2) {
+                            minU = Math.min(minU, uvArray[i]);
+                            maxU = Math.max(maxU, uvArray[i]);
+                            minV = Math.min(minV, uvArray[i + 1]);
+                            maxV = Math.max(maxV, uvArray[i + 1]);
+                        }
+                        
+                    }
+                }
+            });
+            
+            
+            this.gav.traverse((child) => {
+                if (child.isMesh) {
+                    // Ensure normals exist for proper lighting
+                    if (!child.geometry.attributes.normal) {
+                        child.geometry.computeVertexNormals();
+                    }
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    
+                    // Store original material for color switching
+                    child.userData.originalMaterial = child.material.clone();
+                }
+            });
+            
+            // Apply initial color mode
+            this.updateModelColorMode();
+            
+            // Center the entire model as one unit and offset down by 50%
+            const box = new THREE.Box3().setFromObject(this.gav);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            this.gav.position.sub(center); // Center the entire group
+            this.gav.position.y -= size.y * 0.5; // Offset down by 50% of height
+            
+            this.gav.scale.set(0.5, 0.5, 0.5);
+            this.gav.rotation.y = 0; // Reset Y rotation
+            
+            // Add to scene
+            this.scene.add(this.gav);
+            
+            // Initialize mouth animation
+            this.mouthAnimationTime = 0;
+            this.mouthAnimationSpeed = 4.0; // 4 times per second
+            
+            // Initialize animation properties
+            this.headSpinRotation = 0;
+            this.lastSpinTime = 0;
+            this.isSpinning = false;
+            this.spinStartTime = 0;
+            
+            // Crash animation properties
+            this.isCrashing = false;
+            this.crashParticles = [];
+            this.crashTime = 0;
+            
+            // Afterburner effect properties
+            this.afterburnerParticles = [];
+            this.afterburnerActive = false;
+            
+            // Start jaw animation
+            this.startJawAnimation();
+            
+        }, (progress) => {
+            console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
+        }, (error) => {
+            console.error('Error loading head.glb:', error);
+            // No fallback - GLB must load
         });
-        this.gav = new THREE.Mesh(headGeometry, headMaterial);
-        this.gav.castShadow = true;
-        this.scene.add(this.gav);
-        
-        // Eyes removed - character wears sunglasses
-        
-        // Add nose
-        const noseGeometry = new THREE.ConeGeometry(0.05, 0.15, 6);
-        const noseMaterial = new THREE.MeshPhongMaterial({ color: 0xffdbac });
-        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
-        nose.position.set(0, -0.05, 0.45);
-        nose.rotation.x = Math.PI;
-        this.gav.add(nose);
-        
-        // Add Wayfarer-style sunglasses frame
-        const frameGeometry = new THREE.BoxGeometry(1.0, 0.3, 0.08);
-        const frameMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0x000000,
-            shininess: 150
-        });
-        const frame = new THREE.Mesh(frameGeometry, frameMaterial);
-        frame.position.set(0, 0.1, 0.45);
-        this.gav.add(frame);
-        
-        // Add Wayfarer bridge
-        const bridgeGeometry = new THREE.BoxGeometry(0.1, 0.05, 0.08);
-        const bridge = new THREE.Mesh(bridgeGeometry, frameMaterial);
-        bridge.position.set(0, 0.1, 0.45);
-        this.gav.add(bridge);
-        
-        // Add left lens (Wayfarer shape)
-        const leftLensGeometry = new THREE.BoxGeometry(0.4, 0.25, 0.02);
-        const lensMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0x000000,
-            transparent: true,
-            opacity: 0.7
-        });
-        const leftLens = new THREE.Mesh(leftLensGeometry, lensMaterial);
-        leftLens.position.set(-0.25, 0.1, 0.48);
-        this.gav.add(leftLens);
-        
-        // Add right lens (Wayfarer shape)
-        const rightLensGeometry = new THREE.BoxGeometry(0.4, 0.25, 0.02);
-        const rightLens = new THREE.Mesh(rightLensGeometry, lensMaterial);
-        rightLens.position.set(0.25, 0.1, 0.48);
-        this.gav.add(rightLens);
-        
-        // Add Wayfarer temples (side pieces)
-        const leftTempleGeometry = new THREE.BoxGeometry(0.15, 0.05, 0.05);
-        const leftTemple = new THREE.Mesh(leftTempleGeometry, frameMaterial);
-        leftTemple.position.set(-0.5, 0.1, 0.42);
-        this.gav.add(leftTemple);
-        
-        const rightTempleGeometry = new THREE.BoxGeometry(0.15, 0.05, 0.05);
-        const rightTemple = new THREE.Mesh(rightTempleGeometry, frameMaterial);
-        rightTemple.position.set(0.5, 0.1, 0.42);
-        this.gav.add(rightTemple);
-        
-        // Add wide flapping jaw (like the wide smile in photo)
-        const jawGeometry = new THREE.SphereGeometry(0.4, 12, 8, 0, Math.PI * 2, 0, Math.PI);
-        jawGeometry.scale(1.5, 1, 1); // Make jaw wider
-        const jawMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xffdbac,
-            shininess: 100
-        });
-        this.gavJaw = new THREE.Mesh(jawGeometry, jawMaterial);
-        this.gavJaw.position.set(0, -0.4, 0.2);
-        this.gavJaw.rotation.x = Math.PI;
-        this.gav.add(this.gavJaw);
-        
-        // Add teeth (more teeth for wide smile)
-        for (let i = 0; i < 8; i++) {
-            const toothGeometry = new THREE.ConeGeometry(0.025, 0.1, 4);
-            const toothMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
-            const tooth = new THREE.Mesh(toothGeometry, toothMaterial);
-            tooth.position.set(
-                (i - 3.5) * 0.07,
-                -0.05,
-                0.2
-            );
-            tooth.rotation.x = Math.PI;
-            this.gavJaw.add(tooth);
-        }
-        
-        // Add mouth interior (wider)
-        const mouthInteriorGeometry = new THREE.SphereGeometry(0.35, 12, 8, 0, Math.PI * 2, 0, Math.PI);
-        mouthInteriorGeometry.scale(1.5, 1, 1);
-        const mouthInteriorMaterial = new THREE.MeshPhongMaterial({ color: 0x8B0000 });
-        const mouthInterior = new THREE.Mesh(mouthInteriorGeometry, mouthInteriorMaterial);
-        mouthInterior.position.set(0, -0.05, 0.15);
-        mouthInterior.rotation.x = Math.PI;
-        this.gavJaw.add(mouthInterior);
-        
-        // Add hair (short, dark brown, slightly tousled)
-        const hairGeometry = new THREE.SphereGeometry(0.52, 16, 16);
-        const hairMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-        const hair = new THREE.Mesh(hairGeometry, hairMaterial);
-        hair.position.set(0, 0.1, 0);
-        hair.scale.set(1, 0.8, 1);
-        this.gav.add(hair);
-        
-        // Position Gav
-        this.gav.position.set(0, 0, 0);
-        
-        // Initialize animation properties
-        this.headSpinRotation = 0;
-        this.lastSpinTime = 0;
-        this.isSpinning = false;
-        this.spinStartTime = 0;
-        
-        // Crash animation properties
-        this.isCrashing = false;
-        this.crashParticles = [];
-        this.crashTime = 0;
-        
-        // Afterburner effect properties
-        this.afterburnerParticles = [];
-        this.afterburnerActive = false;
-        
-        // Start jaw animation
-        this.startJawAnimation();
-        
-        // Start background music
-        this.startBackgroundMusic();
     }
     
+    
+    
+    
+    updateModelColorMode() {
+        if (!this.gav) return;
+        
+        this.gav.traverse((child) => {
+            if (child.isMesh && child.userData.originalMaterial) {
+                if (this.tutorialMode) {
+                    // Black and white mode during tutorial
+                    const bwMaterial = child.userData.originalMaterial.clone();
+                    bwMaterial.color.setHex(0x808080); // Grey color
+                    bwMaterial.map = null; // Remove texture for pure color
+                    child.material = bwMaterial;
+                } else {
+                    // Full color mode after tutorial
+                    child.material = child.userData.originalMaterial;
+                }
+            }
+        });
+    }
+
+    animateMouth() {
+        if (!this.gav || this.tutorialMode) return; // Only animate after tutorial
+        
+        // Update mouth animation time
+        this.mouthAnimationTime += 0.016; // ~60fps
+        
+        // Animate morph targets 4 times per second
+        this.gav.traverse((child) => {
+            if (child.isMesh && child.morphTargetInfluences) {
+                // Create a smooth sine wave for mouth opening/closing
+                const mouthOpen = Math.sin(this.mouthAnimationTime * this.mouthAnimationSpeed * Math.PI * 2) * 0.5 + 0.5;
+                
+                // Apply to all morph targets (assuming first one is mouth_open)
+                for (let i = 0; i < child.morphTargetInfluences.length; i++) {
+                    child.morphTargetInfluences[i] = mouthOpen;
+                }
+            }
+        });
+    }
+
     startJawAnimation() {
         const animateJaw = () => {
             if (this.gameState !== 'playing') return;
             
             const currentTime = Date.now() * 0.001;
             
-            // Rapid flapping jaw animation (3x faster, 300% more dramatic)
-            const jawOpen = Math.sin(currentTime * 24) * 0.9 + 0.9; // 3x faster flapping (8 * 3 = 24)
-            this.gavJaw.rotation.x = Math.PI + jawOpen;
+            // Animate mouth morph targets
+            this.animateMouth();
             
             // Head spin every 4 seconds
             if (currentTime - this.lastSpinTime >= 4 && !this.isSpinning) {
@@ -998,20 +1163,11 @@ class FlappyGavGame {
     addRing() {
         const ringGeometry = new THREE.TorusGeometry(2, 0.2, 8, 16); // Doubled size: radius 2, thickness 0.2
         
-        // Multi-colored rings during tutorial, green during normal play
+        // Black rings during tutorial, green during normal play
         let ringColor, emissiveColor;
         if (this.tutorialMode) {
-            const colors = [
-                { color: 0xFF0000, emissive: 0x660000 }, // Red
-                { color: 0x00FF00, emissive: 0x006600 }, // Green
-                { color: 0x0000FF, emissive: 0x000066 }, // Blue
-                { color: 0xFFFF00, emissive: 0x666600 }, // Yellow
-                { color: 0xFF00FF, emissive: 0x660066 }, // Magenta
-                { color: 0x00FFFF, emissive: 0x006666 }  // Cyan
-            ];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-            ringColor = randomColor.color;
-            emissiveColor = randomColor.emissive;
+            ringColor = 0x000000; // Black
+            emissiveColor = 0x000000; // Black emissive
         } else {
             ringColor = 0x228B22; // Dark green like Flappy Bird pipes
             emissiveColor = 0x006600;
@@ -1081,16 +1237,31 @@ class FlappyGavGame {
             this.gavPosition.y = -2 + 0.6; // Clamp so head bottom touches ground
         }
         
-        // Update Gav position
-        this.gav.position.set(this.gavPosition.x, this.gavPosition.y, this.gavPosition.z);
+        // Update Gav position (only if gav exists)
+        if (this.gav && this.gav.position) {
+            this.gav.position.set(this.gavPosition.x, this.gavPosition.y, this.gavPosition.z);
+        }
         
         // Add some rotation based on movement (but preserve head spin)
-        this.gav.rotation.y = this.gavVelocity.x * 0.5;
-        this.gav.rotation.x = -this.gavVelocity.y * 0.3;
-        this.gav.rotation.z = this.headSpinRotation; // Z-axis spin
+        if (this.gav && this.gav.rotation) {
+            // Base rotations from input
+            let rotY = this.gavVelocity.x * 0.5;
+            let rotX = -this.gavVelocity.y * 0.3;
+
+            // Headbang after tutorial ends: small X-axis oscillation
+            if (this.headbangActive && !this.tutorialMode) {
+                const tSec = (Date.now() - this.headbangStartTime) / 1000;
+                const omega = (2 * Math.PI) / this.headbangPeriodSec;
+                rotX += Math.sin(tSec * omega) * this.headbangAmplitudeRad;
+            }
+
+            this.gav.rotation.y = rotY;
+            this.gav.rotation.x = rotX;
+            this.gav.rotation.z = this.headSpinRotation; // Z-axis spin only
+        }
         
         // Debug: Log rotation occasionally
-        if (Math.random() < 0.01) { // 1% chance per frame
+        if (Math.random() < 0.01 && this.gav && this.gav.rotation) { // 1% chance per frame
             console.log('Head rotation Y:', this.gav.rotation.y, 'Head spin:', this.headSpinRotation);
         }
     }
@@ -1174,6 +1345,7 @@ class FlappyGavGame {
                 this.stopBackgroundMusic();
                 
                 // Play explosion sound effect
+                console.log('About to play explosion sound...');
                 this.playExplosionSound();
                 
                 this.startCrashAnimation();
@@ -1312,6 +1484,9 @@ class FlappyGavGame {
         this.gav.rotation.x += 0.1;
         
         // Update explosion particles
+        if (!this.crashParticles) {
+            this.crashParticles = [];
+        }
         this.crashParticles.forEach((particle, index) => {
             if (particle.userData.life > 0) {
                 // Move particle
@@ -1343,6 +1518,11 @@ class FlappyGavGame {
     }
     
     updateAfterburnerParticles() {
+        // Initialize if not exists
+        if (!this.afterburnerParticles) {
+            this.afterburnerParticles = [];
+        }
+        
         // Update existing afterburner particles
         this.afterburnerParticles.forEach((particle, index) => {
             if (particle.userData.life > 0) {
@@ -1439,10 +1619,10 @@ class FlappyGavGame {
         this.afterburnerParticles = [];
         
         // Clear all game objects from scene and arrays
-        this.rings.forEach(ring => this.scene.remove(ring));
-        this.obstacles.forEach(obstacle => this.scene.remove(obstacle));
-        this.crashParticles.forEach(particle => this.scene.remove(particle));
-        this.afterburnerParticles.forEach(particle => this.scene.remove(particle));
+        if (this.rings) this.rings.forEach(ring => this.scene.remove(ring));
+        if (this.obstacles) this.obstacles.forEach(obstacle => this.scene.remove(obstacle));
+        if (this.crashParticles) this.crashParticles.forEach(particle => this.scene.remove(particle));
+        if (this.afterburnerParticles) this.afterburnerParticles.forEach(particle => this.scene.remove(particle));
         
         this.rings = [];
         this.obstacles = [];
@@ -1570,6 +1750,15 @@ class FlappyGavGame {
                 // Recreate sky and terrain for normal mode
                 this.createSky();
                 this.createTerrain();
+                
+                // Update model to full color mode
+                this.updateModelColorMode();
+
+                // Start headbanging
+                if (!this.headbangActive) {
+                    this.headbangActive = true;
+                    this.headbangStartTime = Date.now();
+                }
             }
         }
         

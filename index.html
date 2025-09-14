@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Gav 4D – Forever Citizen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <!-- Splash Screen -->
+        <div id="splashScreen" class="screen">
+            <div class="splash-background"></div>
+            <div class="anniversary-banner">
+                <div class="banner-text">Celebrating 10 years since the original Flappy Gav!</div>
+            </div>
+            <div class="title-container">
+                <button id="startButton" class="duke-button">COME GET SOME!</button>
+            </div>
+            <div id="tutorialText" class="tutorial-text hidden">GET READY!</div>
+            <div id="countdownDisplay" class="countdown-text hidden">20</div>
+            <div class="particles" id="particles"></div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="screen hidden">
+            <canvas id="gameCanvas"></canvas>
+            <div id="hud">
+                <div class="hud-item">
+                    <span class="label">TIME:</span>
+                    <span id="timeDisplay">60</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">SCORE:</span>
+                    <span id="scoreDisplay">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">STREAK:</span>
+                    <span id="streakDisplay">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">COLLISION RANGE:</span>
+                    <span id="debugDisplay">--</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">GAVITUDE:</span>
+                    <span id="gavitudeDisplay">--</span>
+                </div>
+            </div>
+            <div id="gavQuips" class="quip-display"></div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="screen hidden">
+            <div class="game-over-container">
+                <h1 class="game-over-title">GAME OVER</h1>
+                <div class="final-score">
+                    <div class="score-label">FINAL SCORE</div>
+                    <div id="finalScore" class="score-value">0</div>
+                </div>
+                <div class="gav-final-quip" id="finalQuip">"Damn, I'm good!"</div>
+                <button id="restartButton" class="duke-button">RESTART MISSION</button>
+                <button id="menuButton" class="duke-button secondary">RETURN TO BASE</button>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div id="instructions" class="instructions">
+            <div class="instructions-content">
+                <h3>CONTROLS</h3>
+                <p><strong>WASD</strong> or <strong>Arrow Keys</strong> to fly</p>
+                <p><strong>Fly through rings</strong> to add time</p>
+                <p><strong>Don't run out of time!</strong></p>
+            </div>
+        </div>
+
+
+        <!-- Tutorial Display -->
+        <div id="tutorialDisplay" class="tutorial-display hidden">
+            <div class="tutorial-content">
+                <h3 id="tutorialTitle">Practice<br>Get Ready!</h3>
+                <div id="tutorialCountdown" class="tutorial-countdown">20</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

@@ -146,12 +146,14 @@ class FlappyGavGame {
                 }, 100);
             });
             
-            // Prevent bounce scrolling
-            document.addEventListener('touchmove', (e) => {
-                if (e.target.closest('#gameCanvas') || e.target.closest('#joystick')) {
+            // Prevent bounce scrolling only on game elements (less aggressive)
+            const preventBounce = (e) => {
+                const target = e.target;
+                if (target.id === 'gameCanvas' || target.closest('#joystick') || target.closest('#gameContainer')) {
                     e.preventDefault();
                 }
-            }, { passive: false });
+            };
+            document.addEventListener('touchmove', preventBounce, { passive: false });
         }
     }
     

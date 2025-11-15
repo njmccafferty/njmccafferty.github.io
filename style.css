@@ -12,6 +12,9 @@ body {
     color: #fff;
     overflow: hidden;
     height: 100vh;
+    /* Prevent all default touch behaviors including double-tap zoom */
+    touch-action: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 #gameContainer {
@@ -531,6 +534,10 @@ body {
     width: 100%;
     height: 100%;
     display: block;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* HUD */
@@ -765,9 +772,24 @@ body {
         padding: 12px 24px;
     }
     
-    .hud {
+    #hud {
         flex-direction: column;
         gap: 10px;
+        top: 10px;
+        left: 10px;
+    }
+    
+    .hud-item {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .hud-item .label {
+        font-size: 0.75rem;
+    }
+    
+    .hud-item span:last-child {
+        font-size: 1rem;
     }
     
     .instructions {
@@ -776,5 +798,64 @@ body {
         right: 10px;
         left: 10px;
         max-width: none;
+        font-size: 0.8rem;
+        padding: 10px;
+    }
+    
+    .quip-display {
+        bottom: 60px;
+        font-size: 0.9rem;
+        padding: 10px 15px;
+        max-width: 90%;
+    }
+    
+    .tutorial-display {
+        top: 10px;
+        right: 10px;
+        width: 150px;
+        padding: 15px;
+        font-size: 0.8rem;
+    }
+    
+    .tutorial-content h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+    
+    .tutorial-countdown {
+        font-size: 2rem;
+        margin: 30px 0 0 0;
+    }
+    
+    /* Prevent text selection on touch */
+    #gameCanvas {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: none;
+    }
+    
+    /* Prevent scrolling on touch */
+    body {
+        touch-action: none;
+        -webkit-overflow-scrolling: touch;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+/* iPhone specific optimizations */
+@supports (-webkit-touch-callout: none) {
+    #gameCanvas {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        touch-action: none;
+    }
+    
+    body {
+        touch-action: none;
+        -webkit-overflow-scrolling: touch;
     }
 }

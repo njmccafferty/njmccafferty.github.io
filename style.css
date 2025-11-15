@@ -1,5 +1,9 @@
 /* Flappy Gav 4D – Forever Citizen Styles */
 
+:root {
+    --vh: 1vh;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -12,15 +16,23 @@ body {
     color: #fff;
     overflow: hidden;
     height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+    position: fixed;
+    width: 100%;
     /* Prevent all default touch behaviors including double-tap zoom */
     touch-action: none;
     -webkit-overflow-scrolling: touch;
+    /* Prevent iOS Safari bounce scrolling */
+    overscroll-behavior: none;
+    -webkit-overscroll-behavior: none;
 }
 
 #gameContainer {
     position: relative;
     width: 100vw;
     height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+    overflow: hidden;
 }
 
 .screen {
@@ -854,6 +866,18 @@ body {
         font-size: 1.5rem;
         margin: 0;
         line-height: 1;
+        text-align: center;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .tutorial-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
     }
     
     /* Show joystick on mobile when not hidden */
@@ -1023,6 +1047,18 @@ body {
         font-size: 1.2rem;
         margin: 0;
         line-height: 1;
+        text-align: center;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .tutorial-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
     }
     
     /* Hide debug HUD items on very small screens to save space */

@@ -103,6 +103,7 @@ class FlappyGavGame {
         this.createParticles();
         this.showScreen('splashScreen');
         this.setupMobileUI();
+        this.setupIOSFullscreen();
         
         // Debug: Check if tutorial display exists on page load
         console.log('Game initialized, checking for tutorial display...');
@@ -117,6 +118,40 @@ class FlappyGavGame {
             });
         } else {
             console.error('Tutorial display NOT found on init!');
+        }
+    }
+    
+    setupIOSFullscreen() {
+        // Hide iOS Safari address bar by scrolling
+        if (this.isIOS) {
+            // Set viewport height to actual screen height
+            const setViewportHeight = () => {
+                const vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            };
+            
+            setViewportHeight();
+            window.addEventListener('resize', setViewportHeight);
+            window.addEventListener('orientationchange', () => {
+                setTimeout(setViewportHeight, 100);
+            });
+            
+            // Scroll to hide address bar on load
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    window.scrollTo(0, 1);
+                    setTimeout(() => {
+                        window.scrollTo(0, 0);
+                    }, 100);
+                }, 100);
+            });
+            
+            // Prevent bounce scrolling
+            document.addEventListener('touchmove', (e) => {
+                if (e.target.closest('#gameCanvas') || e.target.closest('#joystick')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
         }
     }
     
@@ -1596,8 +1631,8 @@ class FlappyGavGame {
                 inputY *= sensitivityMultiplier;
             }
             
-            // Joystick sensitivity multiplier for mobile
-            const joystickMultiplier = this.isMobile ? 0.6 : 0.8;
+            // Joystick sensitivity multiplier for mobile (reduced by 80% = 20% of original)
+            const joystickMultiplier = this.isMobile ? 0.12 : 0.8;
             this.gavVelocity.x = inputX * joystickMultiplier;
             this.gavVelocity.y = inputY * joystickMultiplier;
         } else {

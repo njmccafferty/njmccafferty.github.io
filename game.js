@@ -1649,9 +1649,11 @@ class FlappyGavGame {
         this.gavVelocity.x *= 0.9;
         this.gavVelocity.y *= 0.9;
         
-        // Constrain movement (altitude system: ground at y = -2, so altitude = y + 2)
-        this.gavPosition.x = Math.max(-4, Math.min(4, this.gavPosition.x));
-        this.gavPosition.y = Math.max(-0.4, Math.min(3.5, this.gavPosition.y)); // Altitude 1.6 to 5.5 (y = -0.4 to 3.5)
+        // Constrain movement based on viewport dimensions
+        // Calculate visible bounds based on camera FOV and aspect ratio
+        const bounds = this.calculateMovementBounds();
+        this.gavPosition.x = Math.max(bounds.xMin, Math.min(bounds.xMax, this.gavPosition.x));
+        this.gavPosition.y = Math.max(bounds.yMin, Math.min(bounds.yMax, this.gavPosition.y));
         
         // Check ground collision (ground is at y = -2, altitude 0 = y = -2)
         // Account for head radius - head bottom is at gavPosition.y - 0.6
@@ -1687,6 +1689,45 @@ class FlappyGavGame {
         if (Math.random() < 0.01 && this.gav && this.gav.rotation) { // 1% chance per frame
             console.log('Head rotation Y:', this.gav.rotation.y, 'Head spin:', this.headSpinRotation);
         }
+    }
+    
+    calculateMovementBounds() {
+        if (!this.camera) {
+            // Fallback to default bounds if camera not initialized
+            return {
+                xMin: -4,
+                xMax: 4,
+                yMin: -0.4,
+                yMax: 3.5
+            };
+        }
+        
+        // Camera is at z=5, player is at z=0
+        const cameraDistance = 5;
+        const playerZ = 0;
+        const distanceToPlayer = cameraDistance - playerZ;
+        
+        // Calculate visible frustum at player's z position
+        const fovRad = (this.camera.fov * Math.PI) / 180; // Convert FOV to radians
+        const aspect = this.camera.aspect;
+        
+        // Calculate visible height at player's z position
+        const visibleHeight = 2 * distanceToPlayer * Math.tan(fovRad / 2);
+        const visibleWidth = visibleHeight * aspect;
+        
+        // Add margin to keep player away from edges (10% margin)
+        const marginX = visibleWidth * 0.1;
+        const marginY = visibleHeight * 0.1;
+        
+        // Calculate bounds (camera is centered at x=0, y=0)
+        const bounds = {
+            xMin: -(visibleWidth / 2) + marginX,
+            xMax: (visibleWidth / 2) - marginX,
+            yMin: Math.max(-0.4, -(visibleHeight / 2) + marginY), // Don't go below ground
+            yMax: Math.min(3.5, (visibleHeight / 2) - marginY) // Keep reasonable upper limit
+        };
+        
+        return bounds;
     }
     
     updateRings() {

@@ -768,13 +768,11 @@ body {
     animation: countdownPulse 0.5s ease-in-out infinite alternate;
     text-align: center;
     width: 100%;
-    margin: 0;
+    margin: 0 auto;
     padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
+    display: block;
     line-height: 1;
+    box-sizing: border-box;
 }
 
 /* Mobile Message */

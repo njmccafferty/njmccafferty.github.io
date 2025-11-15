@@ -825,6 +825,8 @@ body {
     #instructions,
     #gavQuips {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
     }
     
     /* Show tutorial display on mobile but make it small and centered at top */
@@ -974,17 +976,11 @@ body {
         line-height: 1;
     }
     
-    /* Instructions - make it much smaller and less intrusive */
+    /* Instructions - hide completely on small screens */
     .instructions {
-        position: fixed;
-        bottom: 5px;
-        right: 5px;
-        left: auto;
-        max-width: 140px;
-        font-size: 0.65rem;
-        padding: 6px 8px;
-        border-width: 1px;
-        opacity: 0.85;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
     }
     
     .instructions h3 {

@@ -841,13 +841,13 @@ body {
         opacity: 0 !important;
     }
     
-    /* Show tutorial display on mobile but make it small and centered at top */
+    /* Show tutorial display on mobile - centered on screen */
     /* Only show when not hidden (JavaScript manages hidden class) */
     #tutorialDisplay:not(.hidden) {
         position: fixed;
-        top: 10px;
+        top: 50%;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         right: auto;
         width: auto;
         min-width: 80px;
@@ -855,6 +855,8 @@ body {
         background: rgba(0, 0, 0, 0.85);
         border-width: 2px;
         display: flex !important;
+        justify-content: center;
+        align-items: center;
     }
     
     /* Hide tutorial title on mobile, only show countdown */
@@ -863,7 +865,7 @@ body {
     }
     
     .tutorial-countdown {
-        font-size: 1.5rem;
+        font-size: 2rem;
         margin: 0;
         line-height: 1;
         text-align: center;
@@ -1026,17 +1028,20 @@ body {
         border-width: 1px;
     }
     
-    /* Tutorial display - small and centered at top */
+    /* Tutorial display - centered on screen */
     .tutorial-display {
-        top: 5px;
+        top: 50%;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         right: auto;
         width: auto;
         min-width: 70px;
         padding: 6px 12px;
         font-size: 0.6rem;
         border-width: 1px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     
     .tutorial-content h3 {
@@ -1044,7 +1049,7 @@ body {
     }
     
     .tutorial-countdown {
-        font-size: 1.2rem;
+        font-size: 1.8rem;
         margin: 0;
         line-height: 1;
         text-align: center;

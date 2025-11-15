@@ -1631,8 +1631,8 @@ class FlappyGavGame {
                 inputY *= sensitivityMultiplier;
             }
             
-            // Joystick sensitivity multiplier for mobile (reduced by 80% = 20% of original)
-            const joystickMultiplier = this.isMobile ? 0.12 : 0.8;
+            // Joystick sensitivity multiplier for mobile (reduced by 90% total = 10% of original)
+            const joystickMultiplier = this.isMobile ? 0.06 : 0.8;
             this.gavVelocity.x = inputX * joystickMultiplier;
             this.gavVelocity.y = inputY * joystickMultiplier;
         } else {

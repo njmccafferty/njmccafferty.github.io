@@ -872,13 +872,13 @@ body {
     
     .tutorial-countdown {
         font-size: 2rem;
-        margin: 0;
+        margin: 0 auto;
+        padding: 0;
         line-height: 1;
         text-align: center;
         width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: block;
+        box-sizing: border-box;
     }
     
     .tutorial-content {
@@ -1056,13 +1056,13 @@ body {
     
     .tutorial-countdown {
         font-size: 1.8rem;
-        margin: 0;
+        margin: 0 auto;
+        padding: 0;
         line-height: 1;
         text-align: center;
         width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: block;
+        box-sizing: border-box;
     }
     
     .tutorial-content {

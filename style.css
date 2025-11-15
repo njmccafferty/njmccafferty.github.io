@@ -768,11 +768,14 @@ body {
     animation: countdownPulse 0.5s ease-in-out infinite alternate;
     text-align: center;
     width: 100%;
-    margin: 0 auto;
+    margin: 0;
     padding: 0;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
     box-sizing: border-box;
+    letter-spacing: 0;
 }
 
 /* Mobile Message */
@@ -877,13 +880,16 @@ body {
     
     .tutorial-countdown {
         font-size: 2rem;
-        margin: 0 auto;
+        margin: 0;
         padding: 0;
         line-height: 1;
         text-align: center;
         width: 100%;
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         box-sizing: border-box;
+        letter-spacing: 0;
     }
     
     .tutorial-content {
@@ -1067,13 +1073,16 @@ body {
     
     .tutorial-countdown {
         font-size: 1.8rem;
-        margin: 0 auto;
+        margin: 0;
         padding: 0;
         line-height: 1;
         text-align: center;
         width: 100%;
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         box-sizing: border-box;
+        letter-spacing: 0;
     }
     
     .tutorial-content {

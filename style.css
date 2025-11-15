@@ -847,13 +847,13 @@ body {
         opacity: 0 !important;
     }
     
-    /* Show tutorial display on mobile - centered on screen */
+    /* Show tutorial display on mobile - centered horizontally, near top */
     /* Only show when not hidden (JavaScript manages hidden class) */
     #tutorialDisplay:not(.hidden) {
         position: fixed;
-        top: 50%;
+        top: 10px;
         left: 50%;
-        transform: translate(-50%, -50%);
+        transform: translateX(-50%);
         right: auto;
         width: auto;
         min-width: 80px;
@@ -865,9 +865,14 @@ body {
         align-items: center;
     }
     
-    /* Hide tutorial title on mobile, only show countdown */
+    /* Show "Get Ready" text on mobile, make it small */
     .tutorial-content h3 {
-        display: none;
+        display: block;
+        font-size: 0.7rem;
+        margin-bottom: 5px;
+        color: #FFD700;
+        text-shadow: 0 0 5px #FFD700;
+        line-height: 1.2;
     }
     
     .tutorial-countdown {
@@ -1034,11 +1039,11 @@ body {
         border-width: 1px;
     }
     
-    /* Tutorial display - centered on screen */
+    /* Tutorial display - centered horizontally, near top */
     .tutorial-display {
-        top: 50%;
+        top: 5px;
         left: 50%;
-        transform: translate(-50%, -50%);
+        transform: translateX(-50%);
         right: auto;
         width: auto;
         min-width: 70px;
@@ -1050,8 +1055,14 @@ body {
         align-items: center;
     }
     
+    /* Show "Get Ready" text on mobile, make it small */
     .tutorial-content h3 {
-        display: none;
+        display: block;
+        font-size: 0.65rem;
+        margin-bottom: 4px;
+        color: #FFD700;
+        text-shadow: 0 0 5px #FFD700;
+        line-height: 1.2;
     }
     
     .tutorial-countdown {

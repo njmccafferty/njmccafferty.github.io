@@ -54,6 +54,14 @@ class FlappyGavGame {
         this.keys = {};
         this.mouse = { x: 0, y: 0, down: false };
         
+        // Mobile detection
+        this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        this.isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        
+        // Touch control smoothing
+        this.touchSmoothing = { x: 0, y: 0 };
+        this.touchSmoothingFactor = 0.3; // Lower = smoother but slower response
+        
         // Duke Nukem quips
         this.quips = [
             "Hail to the king, baby!",
@@ -423,18 +431,24 @@ class FlappyGavGame {
         // Touch events for mobile
         this.canvas.addEventListener('touchstart', (e) => {
             this.mouse.down = true;
+            // Reset smoothing on new touch
+            this.touchSmoothing.x = 0;
+            this.touchSmoothing.y = 0;
             this.updateTouchPosition(e);
             e.preventDefault();
-        });
+        }, { passive: false });
         
         this.canvas.addEventListener('touchend', () => {
             this.mouse.down = false;
+            // Reset smoothing when touch ends
+            this.touchSmoothing.x = 0;
+            this.touchSmoothing.y = 0;
         });
         
         this.canvas.addEventListener('touchmove', (e) => {
             this.updateTouchPosition(e);
             e.preventDefault();
-        });
+        }, { passive: false });
     }
     
     updateMousePosition(e) {
@@ -446,8 +460,15 @@ class FlappyGavGame {
     updateTouchPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
         const touch = e.touches[0];
-        this.mouse.x = (touch.clientX - rect.left) / rect.width * 2 - 1;
-        this.mouse.y = -(touch.clientY - rect.top) / rect.height * 2 + 1;
+        const rawX = (touch.clientX - rect.left) / rect.width * 2 - 1;
+        const rawY = -(touch.clientY - rect.top) / rect.height * 2 + 1;
+        
+        // Apply smoothing to reduce jitter
+        this.touchSmoothing.x += (rawX - this.touchSmoothing.x) * this.touchSmoothingFactor;
+        this.touchSmoothing.y += (rawY - this.touchSmoothing.y) * this.touchSmoothingFactor;
+        
+        this.mouse.x = this.touchSmoothing.x;
+        this.mouse.y = this.touchSmoothing.y;
     }
     
     createParticles() {
@@ -1212,8 +1233,27 @@ class FlappyGavGame {
         
         // Mouse/touch controls
         if (this.mouse.down) {
-            this.gavVelocity.x = this.mouse.x * 0.8; // Reduced sensitivity
-            this.gavVelocity.y = this.mouse.y * 0.8;
+            // Much lower sensitivity for mobile devices, especially iOS
+            let sensitivityMultiplier;
+            if (this.isIOS) {
+                sensitivityMultiplier = 0.25; // Very low sensitivity for iPhone/iPad
+            } else if (this.isMobile) {
+                sensitivityMultiplier = 0.35; // Low sensitivity for other mobile devices
+            } else {
+                sensitivityMultiplier = 0.8; // Normal sensitivity for desktop
+            }
+            
+            // Apply dead zone to prevent drift from tiny movements
+            const deadZone = this.isMobile ? 0.05 : 0.02;
+            const inputX = Math.abs(this.mouse.x) > deadZone ? this.mouse.x : 0;
+            const inputY = Math.abs(this.mouse.y) > deadZone ? this.mouse.y : 0;
+            
+            this.gavVelocity.x = inputX * sensitivityMultiplier;
+            this.gavVelocity.y = inputY * sensitivityMultiplier;
+        } else {
+            // Reset touch smoothing when not touching
+            this.touchSmoothing.x = 0;
+            this.touchSmoothing.y = 0;
         }
         
         // Apply velocity with damping

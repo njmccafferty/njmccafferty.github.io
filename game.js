@@ -131,6 +131,16 @@ class FlappyGavGame {
             }
         }
         
+        // Hide instructions panel on mobile
+        const instructions = document.getElementById('instructions');
+        if (instructions) {
+            if (this.isMobile) {
+                instructions.style.display = 'none';
+                instructions.style.visibility = 'hidden';
+                instructions.style.opacity = '0';
+            }
+        }
+        
         // Setup joystick if mobile
         if (this.isMobile) {
             this.setupJoystick();

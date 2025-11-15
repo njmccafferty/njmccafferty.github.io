@@ -741,6 +741,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    margin: 0;
+    padding: 0;
 }
 
 .tutorial-content h3 {
@@ -766,11 +768,13 @@ body {
     animation: countdownPulse 0.5s ease-in-out infinite alternate;
     text-align: center;
     width: 100%;
-    margin: 20px 0 0 0;
+    margin: 0;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     flex: 1;
+    line-height: 1;
 }
 
 /* Mobile Message */

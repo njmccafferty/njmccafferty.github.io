@@ -62,6 +62,12 @@ class FlappyGavGame {
         this.touchSmoothing = { x: 0, y: 0 };
         this.touchSmoothingFactor = 0.3; // Lower = smoother but slower response
         
+        // Joystick state
+        this.joystickActive = false;
+        this.joystickPosition = { x: 0, y: 0 };
+        this.joystickCenter = { x: 0, y: 0 };
+        this.joystickRadius = 0;
+        
         // Duke Nukem quips
         this.quips = [
             "Hail to the king, baby!",
@@ -96,6 +102,7 @@ class FlappyGavGame {
         this.setupEventListeners();
         this.createParticles();
         this.showScreen('splashScreen');
+        this.setupMobileUI();
         
         // Debug: Check if tutorial display exists on page load
         console.log('Game initialized, checking for tutorial display...');
@@ -111,6 +118,115 @@ class FlappyGavGame {
         } else {
             console.error('Tutorial display NOT found on init!');
         }
+    }
+    
+    setupMobileUI() {
+        // Show/hide mobile message
+        const mobileMessage = document.getElementById('mobileMessage');
+        if (mobileMessage) {
+            if (this.isMobile) {
+                mobileMessage.classList.remove('hidden');
+            } else {
+                mobileMessage.classList.add('hidden');
+            }
+        }
+        
+        // Setup joystick if mobile
+        if (this.isMobile) {
+            this.setupJoystick();
+        }
+    }
+    
+    setupJoystick() {
+        const joystickContainer = document.getElementById('joystick');
+        if (!joystickContainer) return;
+        
+        const joystickBase = joystickContainer.querySelector('.joystick-base');
+        const joystickStick = document.getElementById('joystickStick');
+        
+        if (!joystickBase || !joystickStick) return;
+        
+        // Show joystick
+        joystickContainer.classList.remove('hidden');
+        
+        // Get joystick center and radius
+        const updateJoystickBounds = () => {
+            const rect = joystickBase.getBoundingClientRect();
+            this.joystickCenter.x = rect.left + rect.width / 2;
+            this.joystickCenter.y = rect.top + rect.height / 2;
+            this.joystickRadius = rect.width / 2 - 25; // Leave space for stick
+        };
+        
+        updateJoystickBounds();
+        window.addEventListener('resize', updateJoystickBounds);
+        
+        const handleTouchStart = (e) => {
+            e.preventDefault();
+            const touch = e.touches[0] || e.changedTouches[0];
+            const touchX = touch.clientX;
+            const touchY = touch.clientY;
+            
+            // Check if touch is on joystick
+            const rect = joystickBase.getBoundingClientRect();
+            const distance = Math.sqrt(
+                Math.pow(touchX - (rect.left + rect.width / 2), 2) +
+                Math.pow(touchY - (rect.top + rect.height / 2), 2)
+            );
+            
+            if (distance <= rect.width / 2) {
+                this.joystickActive = true;
+                joystickBase.classList.add('active');
+                this.updateJoystickPosition(touchX, touchY, joystickStick);
+            }
+        };
+        
+        const handleTouchMove = (e) => {
+            if (!this.joystickActive) return;
+            e.preventDefault();
+            const touch = e.touches[0] || e.changedTouches[0];
+            this.updateJoystickPosition(touch.clientX, touch.clientY, joystickStick);
+        };
+        
+        const handleTouchEnd = (e) => {
+            if (!this.joystickActive) return;
+            e.preventDefault();
+            this.joystickActive = false;
+            joystickBase.classList.remove('active');
+            this.joystickPosition.x = 0;
+            this.joystickPosition.y = 0;
+            joystickStick.style.transform = 'translate(-50%, -50%)';
+            this.mouse.down = false;
+        };
+        
+        joystickBase.addEventListener('touchstart', handleTouchStart, { passive: false });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd, { passive: false });
+        document.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    }
+    
+    updateJoystickPosition(touchX, touchY, stickElement) {
+        const deltaX = touchX - this.joystickCenter.x;
+        const deltaY = touchY - this.joystickCenter.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // Clamp to joystick radius
+        const clampedDistance = Math.min(distance, this.joystickRadius);
+        const angle = Math.atan2(deltaY, deltaX);
+        
+        const stickX = Math.cos(angle) * clampedDistance;
+        const stickY = Math.sin(angle) * clampedDistance;
+        
+        // Update stick visual position
+        stickElement.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+        
+        // Normalize joystick input (-1 to 1)
+        this.joystickPosition.x = clampedDistance > 0 ? (stickX / this.joystickRadius) : 0;
+        this.joystickPosition.y = clampedDistance > 0 ? -(stickY / this.joystickRadius) : 0; // Invert Y
+        
+        // Update mouse position for controls
+        this.mouse.x = this.joystickPosition.x;
+        this.mouse.y = this.joystickPosition.y;
+        this.mouse.down = true;
     }
     
     initAudio() {
@@ -428,27 +544,37 @@ class FlappyGavGame {
             this.updateMousePosition(e);
         });
         
-        // Touch events for mobile
-        this.canvas.addEventListener('touchstart', (e) => {
-            this.mouse.down = true;
-            // Reset smoothing on new touch
-            this.touchSmoothing.x = 0;
-            this.touchSmoothing.y = 0;
-            this.updateTouchPosition(e);
-            e.preventDefault();
-        }, { passive: false });
-        
-        this.canvas.addEventListener('touchend', () => {
-            this.mouse.down = false;
-            // Reset smoothing when touch ends
-            this.touchSmoothing.x = 0;
-            this.touchSmoothing.y = 0;
-        });
-        
-        this.canvas.addEventListener('touchmove', (e) => {
-            this.updateTouchPosition(e);
-            e.preventDefault();
-        }, { passive: false });
+        // Touch events for mobile (only if not using joystick)
+        if (!this.isMobile) {
+            this.canvas.addEventListener('touchstart', (e) => {
+                this.mouse.down = true;
+                // Reset smoothing on new touch
+                this.touchSmoothing.x = 0;
+                this.touchSmoothing.y = 0;
+                this.updateTouchPosition(e);
+                e.preventDefault();
+            }, { passive: false });
+            
+            this.canvas.addEventListener('touchend', () => {
+                this.mouse.down = false;
+                // Reset smoothing when touch ends
+                this.touchSmoothing.x = 0;
+                this.touchSmoothing.y = 0;
+            });
+            
+            this.canvas.addEventListener('touchmove', (e) => {
+                this.updateTouchPosition(e);
+                e.preventDefault();
+            }, { passive: false });
+        } else {
+            // On mobile, prevent canvas touch events to avoid interference with joystick
+            this.canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+            this.canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+        }
     }
     
     updateMousePosition(e) {
@@ -548,6 +674,27 @@ class FlappyGavGame {
         console.log("Obstacles at start:", this.obstacles.length);
         
         this.showScreen('gameScreen');
+        
+        // Show/hide joystick based on mobile
+        const joystick = document.getElementById('joystick');
+        if (joystick) {
+            if (this.isMobile) {
+                joystick.classList.remove('hidden');
+                // Update joystick bounds after a short delay to ensure layout is complete
+                setTimeout(() => {
+                    const joystickBase = joystick.querySelector('.joystick-base');
+                    if (joystickBase) {
+                        const rect = joystickBase.getBoundingClientRect();
+                        this.joystickCenter.x = rect.left + rect.width / 2;
+                        this.joystickCenter.y = rect.top + rect.height / 2;
+                        this.joystickRadius = rect.width / 2 - 25;
+                    }
+                }, 100);
+            } else {
+                joystick.classList.add('hidden');
+            }
+        }
+        
         this.initWebGL();
         this.createGav();
         this.createTerrain();
@@ -1231,25 +1378,37 @@ class FlappyGavGame {
             this.gavVelocity.x += moveSpeed;
         }
         
-        // Mouse/touch controls
-        if (this.mouse.down) {
-            // Much lower sensitivity for mobile devices, especially iOS
-            let sensitivityMultiplier;
-            if (this.isIOS) {
-                sensitivityMultiplier = 0.25; // Very low sensitivity for iPhone/iPad
-            } else if (this.isMobile) {
-                sensitivityMultiplier = 0.35; // Low sensitivity for other mobile devices
+        // Mouse/touch/joystick controls
+        if (this.mouse.down || this.joystickActive) {
+            // Use joystick input if active, otherwise use mouse/touch
+            let inputX, inputY;
+            if (this.joystickActive) {
+                inputX = this.joystickPosition.x;
+                inputY = this.joystickPosition.y;
             } else {
-                sensitivityMultiplier = 0.8; // Normal sensitivity for desktop
+                // Much lower sensitivity for mobile devices, especially iOS
+                let sensitivityMultiplier;
+                if (this.isIOS) {
+                    sensitivityMultiplier = 0.25; // Very low sensitivity for iPhone/iPad
+                } else if (this.isMobile) {
+                    sensitivityMultiplier = 0.35; // Low sensitivity for other mobile devices
+                } else {
+                    sensitivityMultiplier = 0.8; // Normal sensitivity for desktop
+                }
+                
+                // Apply dead zone to prevent drift from tiny movements
+                const deadZone = this.isMobile ? 0.05 : 0.02;
+                inputX = Math.abs(this.mouse.x) > deadZone ? this.mouse.x : 0;
+                inputY = Math.abs(this.mouse.y) > deadZone ? this.mouse.y : 0;
+                
+                inputX *= sensitivityMultiplier;
+                inputY *= sensitivityMultiplier;
             }
             
-            // Apply dead zone to prevent drift from tiny movements
-            const deadZone = this.isMobile ? 0.05 : 0.02;
-            const inputX = Math.abs(this.mouse.x) > deadZone ? this.mouse.x : 0;
-            const inputY = Math.abs(this.mouse.y) > deadZone ? this.mouse.y : 0;
-            
-            this.gavVelocity.x = inputX * sensitivityMultiplier;
-            this.gavVelocity.y = inputY * sensitivityMultiplier;
+            // Joystick sensitivity multiplier for mobile
+            const joystickMultiplier = this.isMobile ? 0.6 : 0.8;
+            this.gavVelocity.x = inputX * joystickMultiplier;
+            this.gavVelocity.y = inputY * joystickMultiplier;
         } else {
             // Reset touch smoothing when not touching
             this.touchSmoothing.x = 0;
@@ -1686,6 +1845,17 @@ class FlappyGavGame {
         if (tutorialDisplay) {
             tutorialDisplay.classList.add('hidden');
         }
+        
+        // Hide joystick on game over
+        const joystick = document.getElementById('joystick');
+        if (joystick) {
+            joystick.classList.add('hidden');
+        }
+        
+        // Reset joystick state
+        this.joystickActive = false;
+        this.joystickPosition.x = 0;
+        this.joystickPosition.y = 0;
         
         // Show final quip
         const finalQuip = this.crashQuips[Math.floor(Math.random() * this.crashQuips.length)];

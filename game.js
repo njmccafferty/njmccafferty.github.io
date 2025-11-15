@@ -743,10 +743,17 @@ class FlappyGavGame {
         }
         
         this.initWebGL();
-        this.createGav();
         this.createTerrain();
-        this.gameLoop();
-        this.startTimeCountdown();
+        // Create Gav and wait for it to load before starting game loop
+        this.createGav().then(() => {
+            this.gameLoop();
+            this.startTimeCountdown();
+        }).catch((error) => {
+            console.error('Failed to load character, starting game anyway:', error);
+            // Start game loop even if character fails to load
+            this.gameLoop();
+            this.startTimeCountdown();
+        });
     }
     
     initWebGL() {
@@ -889,9 +896,11 @@ class FlappyGavGame {
     
     
     createGav() {
-        // Load head.glb model
-        const loader = new GLTFLoader();
-        loader.load('head.glb', (gltf) => {
+        // Return a promise to ensure character loads before game starts
+        return new Promise((resolve, reject) => {
+            // Load head.glb model
+            const loader = new GLTFLoader();
+            loader.load('head.glb', (gltf) => {
             console.log('Head GLB loaded successfully');
             this.gav = gltf.scene;
             
@@ -1076,11 +1085,16 @@ class FlappyGavGame {
             // Start jaw animation
             this.startJawAnimation();
             
+            // Resolve promise when character is loaded
+            resolve();
+            
         }, (progress) => {
             console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
         }, (error) => {
             console.error('Error loading head.glb:', error);
-            // No fallback - GLB must load
+            // Reject promise on error
+            reject(error);
+        });
         });
     }
     

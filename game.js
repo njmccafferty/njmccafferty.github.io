@@ -564,9 +564,13 @@ class FlappyGavGame {
         // Create Three.js scene
         this.scene = new THREE.Scene();
         
-        // Create camera
+        // Create camera (chase cam setup)
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.set(0, 0, 5);
+        // Position camera above ground for chase cam view
+        // Camera height affects perspective - higher = less distortion
+        this.camera.position.set(0, 2, 5); // Elevated 2 units above ground
+        // Look slightly down toward horizon for chase cam effect
+        this.camera.lookAt(0, -1, -50); // Look ahead and slightly down
         
         // Create renderer
         this.renderer = new THREE.WebGLRenderer({ 
@@ -997,8 +1001,10 @@ class FlappyGavGame {
     }
     
     createTerrain() {
-        // Create textured ground
-        const groundGeometry = new THREE.PlaneGeometry(100, 100, 50, 50);
+        // Create textured ground - extended size to cover spawn distance
+        // Objects spawn at z = -100 to -140, so ground needs to extend at least that far
+        // Width tripled: 200 -> 600 units wide
+        const groundGeometry = new THREE.PlaneGeometry(600, 300, 300, 150); // Extended: 600 wide (3x), 300 long
         
         // Create a texture for the ground
         const canvas = document.createElement('canvas');
@@ -1092,9 +1098,33 @@ class FlappyGavGame {
         
         // No initial obstacles - let them spawn naturally
     }
+
+    // Calculate Y position on camera's perspective line at a given Z distance
+    // This ensures objects spawn aligned with the camera's view line
+    getPerspectiveY(zPosition) {
+        const cameraPos = this.camera.position;
+        const lookAtPoint = new THREE.Vector3(0, -1, -50); // Camera lookAt point
+        
+        // Calculate direction vector from camera to lookAt
+        const direction = new THREE.Vector3().subVectors(lookAtPoint, cameraPos);
+        
+        // Calculate progress along the line (0 = at camera, 1 = at lookAt, >1 = beyond)
+        const zDistance = zPosition - cameraPos.z;
+        const zDirection = direction.z;
+        const progress = zDistance / zDirection; // Negative values for objects behind camera
+        
+        // Clamp progress to reasonable range
+        const clampedProgress = Math.max(0, Math.min(progress, 2)); // Allow up to 2x lookAt distance
+        
+        // Interpolate Y position along the perspective line
+        const perspectiveY = cameraPos.y + direction.y * clampedProgress;
+        
+        return perspectiveY;
+    }
     
     addObstacle() {
-        const obstacleType = Math.random() < 0.6 ? 'building' : 'tree';
+        const rand = Math.random();
+        const obstacleType = rand < 0.5 ? 'building' : (rand < 0.8 ? 'tree' : 'exGirlfriend');
         let obstacle;
         
         if (obstacleType === 'building') {
@@ -1138,20 +1168,46 @@ class FlappyGavGame {
             });
             
             obstacle = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            
+            const spawnZ = -Math.random() * 40 - 100; // Start much further away
+            // Position building with BASE on ground (y = -2)
+            // BoxGeometry is centered, so bottom is at -height/2 relative to center
+            // To put bottom at y = -2, center must be at y = -2 + height/2
+            const buildingHeight = buildingGeometry.parameters.height;
+            const buildingCenterY = -2 + (buildingHeight / 2); // Center Y so bottom is at -2
+            
             obstacle.position.set(
                 (Math.random() - 0.5) * 12,
-                -2 + buildingGeometry.parameters.height / 2, // Bottom of building sits on ground (y = -2)
-                -Math.random() * 40 - 100 // Start much further away
+                buildingCenterY, // Center Y positioned so BASE is at y = -2
+                spawnZ
             );
-        } else {
+            
+            // Verify: building bottom = buildingCenterY - buildingHeight/2 = -2 + height/2 - height/2 = -2 ✓
+            
+            // Debug: Log actual bottom position
+            const actualBuildingBottom = buildingCenterY - buildingHeight / 2;
+            if (this.obstacles.length < 2) {
+                console.log(`Building spawn: centerY=${buildingCenterY.toFixed(2)}, height=${buildingHeight.toFixed(2)}, bottomY=${actualBuildingBottom.toFixed(2)}, groundY=-2`);
+            }
+            
+            // Store spawn data for scaling
+            obstacle.userData.spawnZ = spawnZ;
+            obstacle.userData.spawnY = buildingCenterY;
+        }
+        else if (obstacleType === 'tree') {
             // Create tree
             const trunkHeight = 2;
             const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.3, trunkHeight, 8);
             const trunkMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
             const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
             
-            // Position trunk so its bottom sits on ground level
-            trunk.position.y = trunkHeight / 2; // Lift trunk up by half its height
+            // CylinderGeometry is centered at origin, so:
+            // - Center is at y = 0 relative to mesh
+            // - Bottom is at y = -trunkHeight/2 relative to mesh center
+            // - Top is at y = +trunkHeight/2 relative to mesh center
+            // Position trunk mesh so its BOTTOM is at group origin (y = 0 relative to group)
+            // To do this, position trunk center at trunkHeight/2 above group origin
+            trunk.position.y = trunkHeight / 2; // Trunk center at trunkHeight/2, so bottom is at groupY + 0
             
             const foliageGeometry = new THREE.SphereGeometry(1.5, 8, 6);
             const foliageMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
@@ -1161,11 +1217,136 @@ class FlappyGavGame {
             obstacle = new THREE.Group();
             obstacle.add(trunk);
             obstacle.add(foliage);
+            
+            const spawnZ = -Math.random() * 40 - 100; // Start much further away
+            // Position tree with trunk BOTTOM on ground (y = -2)
+            // Calculation:
+            // - Trunk mesh center relative to group: trunk.position.y = trunkHeight/2 = 1
+            // - Trunk bottom relative to group: trunk.position.y - trunkHeight/2 = 1 - 1 = 0
+            // - World trunk bottom: groupY + 0 = groupY
+            // Therefore: groupY = -2 puts trunk BOTTOM at ground level (y = -2)
+            const groupY = -2; // Group Y so trunk BOTTOM is at ground level (y = -2)
+            
+            // Debug verification:
+            // Trunk center world Y = groupY + trunk.position.y = -2 + 1 = -1
+            // Trunk bottom world Y = trunk center - trunkHeight/2 = -1 - 1 = -2 ✓
+            
+            // Debug: Log actual bottom position
+            const actualTrunkBottom = groupY + trunk.position.y - trunkHeight / 2;
+            if (this.obstacles.length < 2) {
+                console.log(`Tree spawn: groupY=${groupY.toFixed(2)}, trunkPosY=${trunk.position.y.toFixed(2)}, trunkHeight=${trunkHeight.toFixed(2)}, bottomY=${actualTrunkBottom.toFixed(2)}, groundY=-2`);
+            }
+            
             obstacle.position.set(
                 (Math.random() - 0.5) * 12,
-                -2, // Group positioned at ground level (y = -2)
-                -Math.random() * 40 - 100 // Start much further away
+                groupY, // Trunk bottom at ground level (y = -2)
+                spawnZ
             );
+            
+            // Store spawn data
+            obstacle.userData.spawnZ = spawnZ;
+            obstacle.userData.spawnY = groupY;
+        }
+        else if (obstacleType === 'exGirlfriend') {
+            // Create exGirlfriend - humanoid figure same size as trees
+            // Trees: trunk 2 units + foliage at 3.5 = ~5 units total height
+            // Match this height: legs 1.5 + body 1.2 + head 0.3 = ~3 units, but positioned to match tree height
+            
+            // Legs (two cylinders, similar to tree trunk positioning)
+            const legHeight = 1.5; // Match tree trunk height (2 units) proportionally
+            const legRadius = 0.1;
+            const legGeometry = new THREE.CylinderGeometry(legRadius, legRadius, legHeight, 6);
+            const legMaterial = new THREE.MeshPhongMaterial({ 
+                color: Math.random() > 0.5 ? 0x0000FF : 0x8B008B // Blue or purple
+            });
+            
+            const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+            leftLeg.position.y = legHeight / 2; // Leg center at legHeight/2 above group origin
+            
+            const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+            rightLeg.position.y = legHeight / 2;
+            rightLeg.position.x = legRadius * 1.5; // Slight separation
+            
+            leftLeg.position.x = -legRadius * 1.5;
+            
+            // Body/torso (cylinder, similar to tree trunk)
+            const bodyHeight = 1.2;
+            const bodyRadius = 0.18;
+            const bodyGeometry = new THREE.CylinderGeometry(bodyRadius, bodyRadius * 0.85, bodyHeight, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: Math.random() > 0.5 ? 0xFF1493 : 0xFF69B4 // Pink
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = legHeight + bodyHeight / 2; // Body on top of legs
+            
+            // Head (sphere, similar to tree foliage)
+            const headSize = 0.25;
+            const headGeometry = new THREE.SphereGeometry(headSize, 8, 6);
+            const headMaterial = new THREE.MeshPhongMaterial({ color: 0xFFDBAC }); // Skin tone
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = legHeight + bodyHeight + headSize; // Head on top of body (similar to tree foliage height ~3.5)
+            
+            // Hair (slightly larger sphere, like tree foliage)
+            const hairGeometry = new THREE.SphereGeometry(headSize * 1.3, 8, 6);
+            const hairColor = Math.random() > 0.5 ? 0x8B4513 : (Math.random() > 0.5 ? 0xFFD700 : 0x000000); // Brown, blonde, or black
+            const hairMaterial = new THREE.MeshPhongMaterial({ color: hairColor });
+            const hair = new THREE.Mesh(hairGeometry, hairMaterial);
+            hair.position.y = legHeight + bodyHeight + headSize;
+            hair.position.z = -headSize * 0.4;
+            
+            // Arms (small cylinders)
+            const armHeight = 0.9;
+            const armRadius = 0.07;
+            const armGeometry = new THREE.CylinderGeometry(armRadius, armRadius, armHeight, 6);
+            const armMaterial = new THREE.MeshPhongMaterial({ color: 0xFFDBAC }); // Skin tone
+            
+            const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+            leftArm.rotation.z = Math.PI / 2 + 0.1; // Slight angle
+            leftArm.position.set(-bodyRadius - armHeight / 2 * 0.8, legHeight + bodyHeight * 0.5, 0);
+            
+            const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+            rightArm.rotation.z = -Math.PI / 2 - 0.1; // Slight angle
+            rightArm.position.set(bodyRadius + armHeight / 2 * 0.8, legHeight + bodyHeight * 0.5, 0);
+            
+            obstacle = new THREE.Group();
+            obstacle.add(head);
+            obstacle.add(hair);
+            obstacle.add(body);
+            obstacle.add(leftLeg);
+            obstacle.add(rightLeg);
+            obstacle.add(leftArm);
+            obstacle.add(rightArm);
+            
+            const spawnZ = -Math.random() * 40 - 100; // Start much further away
+            // Position exGirlfriend with feet BOTTOM on ground (y = -2)
+            // Legs are CylinderGeometry (centered), so:
+            // - Leg center relative to leg mesh: y = 0
+            // - Leg bottom relative to leg mesh: y = -legHeight/2
+            // - Leg center relative to group: leg.position.y = legHeight/2 = 0.75
+            // - Leg bottom relative to group: leg.position.y - legHeight/2 = 0.75 - 0.75 = 0
+            // - World leg bottom: groupY + 0 = groupY
+            // Therefore: groupY = -2 puts leg BOTTOM at ground level (y = -2)
+            const groupY = -2; // Group Y so leg BOTTOM is at ground level (y = -2)
+            
+            // Debug verification:
+            // Left leg center world Y = groupY + leftLeg.position.y = -2 + 0.75 = -1.25
+            // Left leg bottom world Y = leg center - legHeight/2 = -1.25 - 0.75 = -2 ✓
+            
+            // Debug: Log actual bottom position
+            const actualLegBottom = groupY + leftLeg.position.y - legHeight / 2;
+            if (this.obstacles.length < 2) {
+                console.log(`ExGirlfriend spawn: groupY=${groupY.toFixed(2)}, legPosY=${leftLeg.position.y.toFixed(2)}, legHeight=${legHeight.toFixed(2)}, bottomY=${actualLegBottom.toFixed(2)}, groundY=-2`);
+            }
+            
+            obstacle.position.set(
+                (Math.random() - 0.5) * 12,
+                groupY, // Feet at ground level (y = -2)
+                spawnZ
+            );
+            
+            // Store spawn data
+            obstacle.userData.spawnZ = spawnZ;
+            obstacle.userData.spawnY = groupY;
         }
         
         obstacle.userData = { 
@@ -1372,9 +1553,36 @@ class FlappyGavGame {
         this.obstacles.forEach(obstacle => {
             obstacle.position.z += 1.0 * this.speed * this.obstacleSpeedMultiplier;
             
-            // Check collision
+            // Optional: Distance-based scaling for depth perception
+            // Objects appear smaller when far away, larger when close
+            // This helps with perspective and makes objects feel more grounded
+            if (obstacle.userData.spawnZ !== undefined) {
+                const cameraZ = this.camera.position.z;
+                const currentZ = obstacle.position.z;
+                const spawnZ = obstacle.userData.spawnZ;
+                
+                // Calculate distance from camera
+                const distanceFromCamera = Math.abs(currentZ - cameraZ);
+                const spawnDistance = Math.abs(spawnZ - cameraZ);
+                
+                // Scale factor: 1.0 at spawn distance, 1.5 when close (z = 0)
+                // This creates natural perspective scaling
+                const minScale = 0.8; // Smaller when far
+                const maxScale = 1.2; // Larger when close
+                const progress = 1 - (distanceFromCamera / spawnDistance); // 0 at spawn, 1 at camera
+                const scale = minScale + (maxScale - minScale) * Math.max(0, Math.min(1, progress));
+                
+                obstacle.scale.set(scale, scale, scale);
+            }
+            
+            // Check collision (account for object scaling)
             const distance = this.gav.position.distanceTo(obstacle.position);
-            if (distance < 1.2) {
+            // Base collision radius, scaled by object's current scale
+            const baseCollisionRadius = 1.2;
+            const currentScale = obstacle.scale.x || 1.0; // Get current scale (assumes uniform scaling)
+            const collisionRadius = baseCollisionRadius * currentScale;
+            
+            if (distance < collisionRadius) {
                 console.log(`COLLISION! Distance: ${distance.toFixed(2)}, Gav pos: (${this.gav.position.x.toFixed(2)}, ${this.gav.position.y.toFixed(2)}, ${this.gav.position.z.toFixed(2)}), Obstacle pos: (${obstacle.position.x.toFixed(2)}, ${obstacle.position.y.toFixed(2)}, ${obstacle.position.z.toFixed(2)})`);
                 
                 // Stop music immediately on collision
